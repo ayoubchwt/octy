@@ -5,7 +5,7 @@ from scraper.schemas.job import Job
 from bs4 import BeautifulSoup
 from datetime import datetime
 from datetime import timezone
-
+from scraper.utils.gemini import clean_description
 def fetchJobs(page : int = 1) -> list[Job]:
     try :
         load_dotenv()
@@ -20,16 +20,17 @@ def fetchJobs(page : int = 1) -> list[Job]:
         data = response.json().get("data",[])
         jobs : list[Job] = []
         for item in data : 
-            description = BeautifulSoup(
+            soup = BeautifulSoup(
                 item.get("description",""),
                 "html.parser",
             ).get_text(" ",strip=True)
+            desciption = clean_description(soup)
             job : Job = {
                 "title": item.get("title", ""),
                 "company": item.get("company_name", ""),
                 "location": item.get("location", ""),
-                "country": "",
-                "description": "",
+                "country": "Germany",
+                "description": desciption,
                 "url": item.get("url", ""),
 
                 "employment_type": "unknown",
