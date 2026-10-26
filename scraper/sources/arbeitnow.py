@@ -5,12 +5,13 @@ from scraper.schemas.job import Job
 from bs4 import BeautifulSoup
 from datetime import datetime
 from datetime import timezone
-from scraper.utils.gemini import clean_description
-def fetchJobs(page : int = 1) -> list[Job]:
+
+def fetchArbeitJobs(page : int = 1) -> list[Job]:
+    load_dotenv()
+    API_URL= os.getenv("NOMADO_API")
+    if not API_URL : 
+        raise ValueError("NOMADO_API is missing from .env")
     try :
-        load_dotenv()
-        API_URL = os.getenv('ARBEIT_NOW_API')
-        print(API_URL)
         response = requests.get(
             API_URL,
             params={"page" : page},
@@ -20,11 +21,10 @@ def fetchJobs(page : int = 1) -> list[Job]:
         data = response.json().get("data",[])
         jobs : list[Job] = []
         for item in data : 
-            soup = BeautifulSoup(
+            desciption = BeautifulSoup(
                 item.get("description",""),
                 "html.parser",
             ).get_text(" ",strip=True)
-            desciption = clean_description(soup)
             job : Job = {
                 "title": item.get("title", ""),
                 "company": item.get("company_name", ""),
@@ -55,4 +55,3 @@ def fetchJobs(page : int = 1) -> list[Job]:
         return jobs
     except Exception as e : 
         print(e) 
-print(fetchJobs())
