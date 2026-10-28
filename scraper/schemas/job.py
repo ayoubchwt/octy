@@ -3,6 +3,7 @@ class Job(_TypedDict) :
     title: str
     company: str
     location: str
+    language : str
     country: str
     description: str
     url: str

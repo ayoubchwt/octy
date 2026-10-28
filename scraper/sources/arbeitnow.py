@@ -29,6 +29,7 @@ def fetchArbeitJobs(page : int = 1) -> list[Job]:
                 "title": item.get("title", ""),
                 "company": item.get("company_name", ""),
                 "location": item.get("location", ""),
+                "language" : item.get("language", ""),
                 "country": "Germany",
                 "description": desciption,
                 "url": item.get("url", ""),
