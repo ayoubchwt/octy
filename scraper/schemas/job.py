@@ -9,8 +9,6 @@ class Job(_TypedDict) :
     url: str
     
     employment_type: str
-    workplace_type: str
-    experience_level: str
     
     salary_min: float | None
     salary_max: float | None

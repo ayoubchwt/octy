@@ -30,10 +30,6 @@ def fetchNomadoJobs(page : int = 1) -> list[Job] :
                 "url": item.get("url", ""),
 
                 "employment_type": "unknown",
-                "workplace_type": (
-                    "remote" if item.get("remote", False) else "unknown"
-                ),
-                "experience_level": "unknown",
 
                 "salary_min": item.get("salaryMin"),
                 "salary_max": item.get("salaryMax"),
