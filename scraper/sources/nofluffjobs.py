@@ -127,8 +127,25 @@ async def collect_jobs_data(href: str, page) -> Job:
         print(f"Error fetching job details for {href}: {e}")
         raise
 
+async def _show_more_jobs(page, target_count: int = 200) -> None:
+    while True:
+        card_count = await page.locator('[id^="nfjPostingListItem-"]').count()
+        if card_count >= target_count:
+            break
+        button = page.get_by_role("button", name="See more offers")
+        if not await button.is_visible():
+            break
+        await button.click()
+        try:
+            await page.wait_for_function(
+                """(prevCount) => document.querySelectorAll('[id^="nfjPostingListItem-"]').length > prevCount""",
+                arg=card_count,
+                timeout=5000,
+            )
+        except Exception:
+            break
 
-async def collect_jobs_href() -> list[Job]:
+async def collect_jobs() -> list[Job]:
     load_dotenv()
     NO_FLUFF_JOBS_URL = os.getenv("NO_FLUFF_JOBS_URL")
     if not NO_FLUFF_JOBS_URL:
@@ -142,6 +159,7 @@ async def collect_jobs_href() -> list[Job]:
                 raise ConnectionError(f"Connection with NoFluffJobs got rejected - status code: {status_code}")
             await _accept_cookies(page)
             await page.wait_for_selector('[id^="nfjPostingListItem-"]', timeout=10000)
+            await _show_more_jobs(page, 200)
             card_elements = await page.locator('[id^="nfjPostingListItem-"]').all()
             hrefs: list[str] = []
             for card in card_elements:
@@ -153,11 +171,11 @@ async def collect_jobs_href() -> list[Job]:
             for href in hrefs:
                 job = await collect_jobs_data(href, page)
                 jobs.append(job)
+                await asyncio.sleep(1.0)
             return jobs
     except Exception as e:
         print(e)
         raise
 
-result = asyncio.run(collect_jobs_href())
-for item in result : 
-    print(item)
+result = asyncio.run(collect_jobs())
+print(len(result))
