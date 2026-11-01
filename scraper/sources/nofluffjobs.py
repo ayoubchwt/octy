@@ -15,18 +15,18 @@ def _parse_salary(salary_text: str | None) -> tuple[float | None, float | None, 
     cleaned = salary_text.replace("\xa0", " ")
     lower = cleaned.lower()
 
-    if "month" in lower or "msc" in lower or "miesiąc" in lower:
+    if "month" in lower:
         period = "month"
-    elif "day" in lower or "dzień" in lower:
+    elif "day" in lower:
         period = "day"
-    elif "hour" in lower or "godz" in lower:
+    elif "hour" in lower:
         period = "hour"
-    elif "year" in lower or "rok" in lower:
+    elif "year" in lower:
         period = "year"
     else:
         period = None
 
-    currency = "PLN" if ("pln" in lower or "zł" in lower) else "EUR" if ("eur" in lower or "€" in lower) else "USD" if ("usd" in lower or "$" in lower) else None
+    currency = "PLN"
  
     parts = re.split(r"\s*[-–—]\s*", cleaned)
     numbers: list[float] = []
@@ -44,10 +44,24 @@ def _parse_salary(salary_text: str | None) -> tuple[float | None, float | None, 
         return numbers[0], numbers[0], currency, period
     return None, None, currency, period
 
-async def _accept_cookies(page) : 
-    cookies_Button = page.locator("#accept")
-    if await cookies_Button.count() > 0 : 
-        await cookies_Button.click()
+async def _accept_cookies(page):
+    try:
+        await page.wait_for_selector("#usercentrics-cmp-ui", timeout=5000)
+        accepted = await page.evaluate("""() => {
+            const cmp = document.querySelector('#usercentrics-cmp-ui');
+            if (!cmp) return false;
+            const root = cmp.shadowRoot || cmp;
+            const btn = root.querySelector('button#accept') || root.querySelector('[data-testid="uc-accept-all-button"]');
+            if (btn) {
+                btn.click();
+                return true;
+            }
+            return false;
+        }""")
+        if accepted:
+            await page.wait_for_timeout(1000)
+    except Exception:
+        pass
 
 async def collect_jobs_data(href: str, page) -> Job:
     load_dotenv()
@@ -126,17 +140,18 @@ async def collect_jobs_href() -> list[Job]:
             if response is None or response.status > 400:
                 status_code = response.status if response else "No response"
                 raise ConnectionError(f"Connection with NoFluffJobs got rejected - status code: {status_code}")
+            await _accept_cookies(page)
+            await page.wait_for_selector('[id^="nfjPostingListItem-"]', timeout=10000)
+            card_elements = await page.locator('[id^="nfjPostingListItem-"]').all()
+            hrefs: list[str] = []
+            for card in card_elements:
+                href = await card.get_attribute("href")
+                if href:
+                    hrefs.append(href)
 
-            cards = page.locator('[id^="nfjPostingListItem-"]')
-            await cards.first.wait_for(state="visible", timeout=15000)
-
-            count = await cards.count()
             jobs: list[Job] = []
-            for i in range(count):
-                href = await cards.nth(i).get_attribute("href")
+            for href in hrefs:
                 job = await collect_jobs_data(href, page)
-                await _accept_cookies()
-                # print(job)
                 jobs.append(job)
             return jobs
     except Exception as e:
@@ -144,3 +159,5 @@ async def collect_jobs_href() -> list[Job]:
         raise
 
 result = asyncio.run(collect_jobs_href())
+for item in result : 
+    print(item)
