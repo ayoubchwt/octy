@@ -6,7 +6,6 @@ from camoufox.async_api import AsyncCamoufox
 from scraper.schemas.job import Job
 from datetime import datetime, timezone
 
-
 def _parse_salary(salary_text: str | None) -> tuple[float | None, float | None, str | None, str | None]:
     
     if not salary_text:
@@ -44,25 +43,6 @@ def _parse_salary(salary_text: str | None) -> tuple[float | None, float | None, 
         return numbers[0], numbers[0], currency, period
     return None, None, currency, period
 
-async def _accept_cookies(page):
-    try:
-        await page.wait_for_selector("#usercentrics-cmp-ui", timeout=5000)
-        accepted = await page.evaluate("""() => {
-            const cmp = document.querySelector('#usercentrics-cmp-ui');
-            if (!cmp) return false;
-            const root = cmp.shadowRoot || cmp;
-            const btn = root.querySelector('button#accept') || root.querySelector('[data-testid="uc-accept-all-button"]');
-            if (btn) {
-                btn.click();
-                return true;
-            }
-            return false;
-        }""")
-        if accepted:
-            await page.wait_for_timeout(1000)
-    except Exception:
-        pass
-
 async def collect_jobs_data(href: str, page) -> Job:
     load_dotenv()
     NO_FLUFF_JOBS_URL = os.getenv("NO_FLUFF_JOBS_URL")
@@ -72,11 +52,11 @@ async def collect_jobs_data(href: str, page) -> Job:
     target_url = NO_FLUFF_JOBS_URL.rstrip("/") + "/" + href.lstrip("/")
 
     try:
-        response = await page.goto(target_url, wait_until="domcontentloaded")
+        response = await page.goto(target_url, wait_until="domcontentloaded", timeout=15000)
         if response is None or response.status > 400:
             status_code = response.status if response else "No response"
             raise ConnectionError(f"Connection with NoFluffJobs details page got rejected - status code: {status_code}")
-
+        
         title_loc = page.locator('div[class*="posting-details-description"] h1')
         title = (await title_loc.first.inner_text()).strip() if await title_loc.count() > 0 else ""
 
@@ -126,6 +106,23 @@ async def collect_jobs_data(href: str, page) -> Job:
     except Exception as e:
         print(f"Error fetching job details for {href}: {e}")
         raise
+async def _close_notification(page) -> None:
+    notification_dialogue = page.locator('div[class="cdk-overlay-container"]')
+    try : 
+        await notification_dialogue.wait_for(
+            state="visible",
+            timout=30000 
+        )
+        print("notification dialogue", notification_dialogue.count())
+        if await notification_dialogue.count() > 0:
+            viewport = page.viewport_size or {"width": 1280, "height": 720}
+            
+            x = viewport["width"] / 2
+            y = viewport["height"] / 2
+            
+            await page.mouse.click(x, y)
+    except Exception : 
+        print("Notification dialogue did not appear.")
 
 async def _show_more_jobs(page, target_count: int = 200) -> None:
     while True:
@@ -134,17 +131,21 @@ async def _show_more_jobs(page, target_count: int = 200) -> None:
             break
         button = page.get_by_role("button", name="See more offers")
         if not await button.is_visible():
-            break
+            try:
+                await button.wait_for(state="visible", timeout=6000)
+            except Exception:
+                break
+            
         await button.click()
         try:
             await page.wait_for_function(
                 """(prevCount) => document.querySelectorAll('[id^="nfjPostingListItem-"]').length > prevCount""",
                 arg=card_count,
-                timeout=5000,
+                timeout=8000,
             )
         except Exception:
-            break
-
+            await asyncio.sleep(1.0)
+            
 async def collect_jobs() -> list[Job]:
     load_dotenv()
     NO_FLUFF_JOBS_URL = os.getenv("NO_FLUFF_JOBS_URL")
@@ -157,10 +158,10 @@ async def collect_jobs() -> list[Job]:
             if response is None or response.status > 400:
                 status_code = response.status if response else "No response"
                 raise ConnectionError(f"Connection with NoFluffJobs got rejected - status code: {status_code}")
-            await _accept_cookies(page)
-            await page.wait_for_selector('[id^="nfjPostingListItem-"]', timeout=10000)
-            await _show_more_jobs(page, 200)
+            await _close_notification(page)
+            await _show_more_jobs(page, 700)
             card_elements = await page.locator('[id^="nfjPostingListItem-"]').all()
+            print(len(card_elements))
             hrefs: list[str] = []
             for card in card_elements:
                 href = await card.get_attribute("href")
