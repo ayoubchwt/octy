@@ -5,9 +5,8 @@ import asyncio
 from camoufox.async_api import AsyncCamoufox
 from scraper.schemas.job import Job
 from datetime import datetime, timezone
-
+import random 
 def _parse_salary(salary_text: str | None) -> tuple[float | None, float | None, str | None, str | None]:
-    
     if not salary_text:
         return None, None, None, None
 
@@ -43,7 +42,7 @@ def _parse_salary(salary_text: str | None) -> tuple[float | None, float | None, 
         return numbers[0], numbers[0], currency, period
     return None, None, currency, period
 
-async def collect_jobs_data(href: str, page) -> Job:
+async def collect_jobs_data(href: str, page, max_retries) -> Job | None:
     load_dotenv()
     NO_FLUFF_JOBS_URL = os.getenv("NO_FLUFF_JOBS_URL")
     if not NO_FLUFF_JOBS_URL:
@@ -51,70 +50,78 @@ async def collect_jobs_data(href: str, page) -> Job:
 
     target_url = NO_FLUFF_JOBS_URL.rstrip("/") + "/" + href.lstrip("/")
 
-    try:
-        response = await page.goto(target_url, wait_until="domcontentloaded", timeout=15000)
-        if response is None or response.status > 400:
-            status_code = response.status if response else "No response"
-            raise ConnectionError(f"Connection with NoFluffJobs details page got rejected - status code: {status_code}")
-        
-        title_loc = page.locator('div[class*="posting-details-description"] h1')
-        title = (await title_loc.first.inner_text()).strip() if await title_loc.count() > 0 else ""
+    print(f"scraping {target_url} ...")
+    for attempt in range (1 , (max_retries + 1)) :
+        try:
+            response = await page.goto(target_url, wait_until="domcontentloaded", timeout=15000)
+            if response is None or response.status > 400:
+                status_code = response.status if response else "No response"
+                print(f"retry {attempt} / {max_retries}, Connection with NoFluffJobs details page got rejected - status code: {status_code}")
+                if(attempt < max_retries) : 
+                    await asyncio.sleep(random.uniform(20.0,30.0))
+                    continue
+                return None
+            
+            title_loc = page.locator('div[class*="posting-details-description"] h1')
+            title = (await title_loc.first.inner_text()).strip() if await title_loc.count() > 0 else ""
 
-        company_loc = page.locator('#postingCompanyUrl')
-        company = (await company_loc.first.inner_text()).strip() if await company_loc.count() > 0 else ""
+            company_loc = page.locator('#postingCompanyUrl')
+            company = (await company_loc.first.inner_text()).strip() if await company_loc.count() > 0 else ""
 
-        loc_elem = page.locator('span[class*="locations-text"] span')
-        location = (await loc_elem.first.inner_text()).strip() if await loc_elem.count() > 0 else ""
+            loc_elem = page.locator('span[class*="locations-text"] span')
+            location = (await loc_elem.first.inner_text()).strip() if await loc_elem.count() > 0 else ""
 
-        desc_loc = page.locator('#posting-description')
-        description = (await desc_loc.first.inner_text()).strip() if await desc_loc.count() > 0 else ""
+            desc_loc = page.locator('#posting-description')
+            description = (await desc_loc.first.inner_text()).strip() if await desc_loc.count() > 0 else ""
 
-        req_loc = page.locator('#posting-requirements li span, [commonpostingitemtag]')
-        skills = [s.strip() for s in await req_loc.all_inner_texts() if s.strip()]
+            req_loc = page.locator('#posting-requirements li span, [commonpostingitemtag]')
+            skills = [s.strip() for s in await req_loc.all_inner_texts() if s.strip()]
 
-        salary_loc = page.locator('div[class*="salary "]')
-        salary_text = (await salary_loc.first.inner_text()).strip() if await salary_loc.count() > 0 else ""
-        salary_min, salary_max, salary_currency, salary_period = _parse_salary(salary_text)
+            salary_loc = page.locator('div[class*="salary "]')
+            salary_text = (await salary_loc.first.inner_text()).strip() if await salary_loc.count() > 0 else ""
+            salary_min, salary_max, salary_currency, salary_period = _parse_salary(salary_text)
 
-        job_nature_indicator = await page.locator(".common-posting-locations").count()
+            job_nature_indicator = await page.locator(".common-posting-locations").count()
 
-        language_detect_source = f"{title} {' '.join(skills)} {description}".lower()
-        language = "english" if "english" in language_detect_source else "polish"
+            language_detect_source = f"{title} {' '.join(skills)} {description}".lower()
+            language = "english" if "english" in language_detect_source else "polish"
 
-        now_iso = datetime.now(timezone.utc).isoformat()
+            now_iso = datetime.now(timezone.utc).isoformat()
 
-        job_data: Job = {
-            "title": title,
-            "company": company,
-            "location": location,
-            "language": language,
-            "country": "Poland",
-            "description": description,
-            "url": target_url,
-            "employment_type": "hybrid" if job_nature_indicator > 0 else "remote",
-            "salary_min": salary_min,
-            "salary_max": salary_max,
-            "salary_currency": salary_currency or "PLN",
-            "salary_period": salary_period,
-            "skills": skills,
-            "source": "nofluffjobs",
-            "source_job_id": href,
-            "posted_at": now_iso,
-            "first_seen_at": now_iso,
-        }
-        return job_data
-    except Exception as e:
-        print(f"Error fetching job details for {href}: {e}")
-        raise
+            job_data: Job = {
+                "title": title,
+                "company": company,
+                "location": location,
+                "language": language,
+                "country": "Poland",
+                "description": description,
+                "url": target_url,
+                "employment_type": "hybrid" if job_nature_indicator > 0 else "remote",
+                "salary_min": salary_min,
+                "salary_max": salary_max,
+                "salary_currency": salary_currency or "PLN",
+                "salary_period": salary_period,
+                "skills": skills,
+                "source": "nofluffjobs",
+                "source_job_id": href,
+                "posted_at": now_iso,
+                "first_seen_at": now_iso,
+            }
+            return job_data
+        except Exception as e:
+            print(f"attempt {attempt}/{max_retries}, Error fetching job details for {href}: {e}")
+            if(attempt < max_retries) : 
+                await asyncio.sleep(random.uniform(1.0, 2.0))
+                continue
+            return None
 async def _close_notification(page) -> None:
     notification_dialogue = page.locator('div[class="cdk-overlay-container"]')
     try : 
         await notification_dialogue.wait_for(
             state="visible",
-            timout=30000 
+            timeout=30000 
         )
-        print("notification dialogue", notification_dialogue.count())
-        if await notification_dialogue.count() > 0:
+        if (await notification_dialogue.count()) > 0 :
             viewport = page.viewport_size or {"width": 1280, "height": 720}
             
             x = viewport["width"] / 2
@@ -168,12 +175,14 @@ async def collect_jobs() -> list[Job]:
                 if href:
                     hrefs.append(href)
 
-            jobs: list[Job] = []
+            jobs: list[Job | None] = []
             for href in hrefs:
-                job = await collect_jobs_data(href, page)
-                jobs.append(job)
-                await asyncio.sleep(1.0)
-            return jobs
+                job = await collect_jobs_data(href, page, 2)
+                if job : 
+                    jobs.append(job)
+                await asyncio.sleep(random.uniform(1.0, 2.0))
+            filtered_jobs = [job for job in jobs if job is not None]
+            return filtered_jobs
     except Exception as e:
         print(e)
         raise
