@@ -58,7 +58,7 @@ async def collect_jobs_data(href: str, page, max_retries) -> Job | None:
                 status_code = response.status if response else "No response"
                 print(f"retry {attempt} / {max_retries}, Connection with NoFluffJobs details page got rejected - status code: {status_code}")
                 if(attempt < max_retries) : 
-                    await asyncio.sleep(random.uniform(20.0,30.0))
+                    await asyncio.sleep(random.uniform(20.0, 30.0))
                     continue
                 return None
             
@@ -111,7 +111,7 @@ async def collect_jobs_data(href: str, page, max_retries) -> Job | None:
         except Exception as e:
             print(f"attempt {attempt}/{max_retries}, Error fetching job details for {href}: {e}")
             if(attempt < max_retries) : 
-                await asyncio.sleep(random.uniform(1.0, 2.0))
+                await asyncio.sleep(random.uniform(20.0, 30.0))
                 continue
             return None
 async def _close_notification(page) -> None:
@@ -180,7 +180,7 @@ async def collect_jobs() -> list[Job]:
                 job = await collect_jobs_data(href, page, 2)
                 if job : 
                     jobs.append(job)
-                await asyncio.sleep(random.uniform(1.0, 2.0))
+                await asyncio.sleep(random.uniform(20.0, 30.0))
             filtered_jobs = [job for job in jobs if job is not None]
             return filtered_jobs
     except Exception as e:

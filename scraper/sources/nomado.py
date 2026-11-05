@@ -4,21 +4,30 @@ import os
 import requests
 import pandas as pd
 from datetime import timezone, datetime
-
+import time
 def fetchNomadoJobs(page : int = 1) -> list[Job] : 
     load_dotenv()
     API_URL= os.getenv("NOMADO_API")
     if not API_URL : 
         raise ValueError("NOMADO_API is missing from .env")
-    try : 
+    jobs : list[Job] = []   
+    while True :
+        print(f"\n jobs number : {len(jobs)}")
         response = requests.get(
             API_URL,
             params={"page" : page},
             timeout=20,
             )
+        if response.status_code == 429:
+            print("Rate limited. Waiting 30 seconds...")
+            time.sleep(30)
+            continue
         response.raise_for_status()
         data = response.json().get("data",[])     
-        jobs : list[Job] = []   
+        if not data : 
+            print("No more jobs found")
+            break
+
         for item in data : 
             job : Job = {
                 "title": item.get("title", ""),
@@ -37,14 +46,14 @@ def fetchNomadoJobs(page : int = 1) -> list[Job] :
                 "salary_period": "month",
 
                 "skills": item.get("tags", []),
-                "source": "arbeitnow",
+                "source": "nomado",
                 "source_job_id": str(item.get("slug", "")) or None,
 
                 "posted_at": item.get("created_at"),
                 "first_seen_at": datetime.now(timezone.utc).isoformat(),
             } 
             jobs.append(job)
-        return jobs     
-    except Exception as e : 
-        print(e)
-     
+        page+=1
+    return jobs   
+
+result = fetchNomadoJobs()
