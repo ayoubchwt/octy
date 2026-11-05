@@ -6,13 +6,13 @@ from bs4 import BeautifulSoup
 from datetime import datetime,timezone
 import time
 def fetchArbeitJobs(page : int = 4) -> list[Job]:
+    print("scraping Arbeitnow ...")
     load_dotenv()
     API_URL= os.getenv("NOMADO_API")
     if not API_URL : 
         raise ValueError("NOMADO_API is missing from .env")
     jobs : list[Job] = []
     while True :
-        print(f"\n jobs number : {len(jobs)}")
         response = requests.get(
             API_URL,
             params={"page" : page},
@@ -57,6 +57,7 @@ def fetchArbeitJobs(page : int = 4) -> list[Job]:
             }
             jobs.append(job)
         page+=1
+        if len(jobs) >= 1000 : 
+            break
+    print(f"{len(jobs)} jobs scraped from Arbeitnow successfully")
     return jobs
-
-result = fetchArbeitJobs()

@@ -6,13 +6,13 @@ import pandas as pd
 from datetime import timezone, datetime
 import time
 def fetchNomadoJobs(page : int = 1) -> list[Job] : 
+    print("scraping nomado jobs ...")
     load_dotenv()
     API_URL= os.getenv("NOMADO_API")
     if not API_URL : 
         raise ValueError("NOMADO_API is missing from .env")
     jobs : list[Job] = []   
     while True :
-        print(f"\n jobs number : {len(jobs)}")
         response = requests.get(
             API_URL,
             params={"page" : page},
@@ -54,6 +54,7 @@ def fetchNomadoJobs(page : int = 1) -> list[Job] :
             } 
             jobs.append(job)
         page+=1
+        if len(jobs) >= 1000 : 
+            break
+    print(f"{len(jobs)} jobs scraped from Nomado successfully")
     return jobs   
-
-result = fetchNomadoJobs()

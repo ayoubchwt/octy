@@ -50,7 +50,6 @@ async def collect_jobs_data(href: str, page, max_retries) -> Job | None:
 
     target_url = NO_FLUFF_JOBS_URL.rstrip("/") + "/" + href.lstrip("/")
 
-    print(f"scraping {target_url} ...")
     for attempt in range (1 , (max_retries + 1)) :
         try:
             response = await page.goto(target_url, wait_until="domcontentloaded", timeout=15000)
@@ -153,7 +152,8 @@ async def _show_more_jobs(page, target_count: int = 200) -> None:
         except Exception:
             await asyncio.sleep(1.0)
             
-async def collect_jobs() -> list[Job]:
+async def fetchNofluffjobs() -> list[Job]:
+    print("scraping nofluffjobs ...")
     load_dotenv()
     NO_FLUFF_JOBS_URL = os.getenv("NO_FLUFF_JOBS_URL")
     if not NO_FLUFF_JOBS_URL:
@@ -166,9 +166,8 @@ async def collect_jobs() -> list[Job]:
                 status_code = response.status if response else "No response"
                 raise ConnectionError(f"Connection with NoFluffJobs got rejected - status code: {status_code}")
             await _close_notification(page)
-            await _show_more_jobs(page, 700)
+            await _show_more_jobs(page, 1000)
             card_elements = await page.locator('[id^="nfjPostingListItem-"]').all()
-            print(len(card_elements))
             hrefs: list[str] = []
             for card in card_elements:
                 href = await card.get_attribute("href")
@@ -182,10 +181,8 @@ async def collect_jobs() -> list[Job]:
                     jobs.append(job)
                 await asyncio.sleep(random.uniform(20.0, 30.0))
             filtered_jobs = [job for job in jobs if job is not None]
+            print(f"{len(filtered_jobs)} jobs scraped from nofluffjobs successfully")
             return filtered_jobs
     except Exception as e:
         print(e)
         raise
-
-result = asyncio.run(collect_jobs())
-print(len(result))
