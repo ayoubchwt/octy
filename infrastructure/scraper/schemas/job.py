@@ -2,13 +2,14 @@ from typing import _TypedDict
 class Job(_TypedDict) :
     title: str
     company: str
+    
     location: str
-    language : str
     country: str
-    description: str
-    url: str
     
     employment_type: str
+    language : str
+    description: str
+    url: str
     
     salary_min: float | None
     salary_max: float | None

@@ -38,6 +38,8 @@ INSTALLED_APPS = [
     'django.contrib.messages',
     'django.contrib.staticfiles',
     'django_mongodb_backend',
+    #local apps+
+    'apps.jobs'
 ]
 
 MIGRATION_MODULES = {

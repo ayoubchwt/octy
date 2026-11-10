@@ -3,7 +3,7 @@ import os
 import re
 import asyncio
 from camoufox.async_api import AsyncCamoufox
-from scraper.schemas.job import Job
+from infrastructure.scraper.schemas.job import Job
 from datetime import datetime, timezone
 import random 
 def _parse_salary(salary_text: str | None) -> tuple[float | None, float | None, str | None, str | None]:
@@ -152,7 +152,7 @@ async def _show_more_jobs(page, target_count: int = 200) -> None:
         except Exception:
             await asyncio.sleep(1.0)
             
-async def fetchNofluffjobs() -> list[Job]:
+async def fetchNofluffjobs(jobs_number = 1000) -> list[Job]:
     print("scraping nofluffjobs ...")
     load_dotenv()
     NO_FLUFF_JOBS_URL = os.getenv("NO_FLUFF_JOBS_URL")
@@ -160,13 +160,19 @@ async def fetchNofluffjobs() -> list[Job]:
         raise ValueError("NO_FLUFF_JOBS_URL is missing from .env")
     try:
         async with AsyncCamoufox(headless=False) as browser:
-            page = await browser.new_page()
+            context = await browser.new_context(
+                locale="en-US",
+                    extra_http_headers={
+                        "Accept-Language": "en-US,en;q=0.9"
+                    }
+            )
+            page = await context.new_page()
             response = await page.goto(NO_FLUFF_JOBS_URL, wait_until="domcontentloaded")
             if response is None or response.status > 400:
                 status_code = response.status if response else "No response"
                 raise ConnectionError(f"Connection with NoFluffJobs got rejected - status code: {status_code}")
             await _close_notification(page)
-            await _show_more_jobs(page, 1000)
+            await _show_more_jobs(page, jobs_number)
             card_elements = await page.locator('[id^="nfjPostingListItem-"]').all()
             hrefs: list[str] = []
             for card in card_elements:
