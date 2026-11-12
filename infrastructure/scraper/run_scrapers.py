@@ -2,7 +2,7 @@ from infrastructure.scraper.sources.arbeitnow import fetchArbeitJobs
 from infrastructure.scraper.sources.nomado import fetchNomadoJobs
 from infrastructure.scraper.sources.nofluffjobs import fetchNofluffjobs
 from infrastructure.scraper.schemas.job import Job
-# from infrastructure.scraper.clean_result import job_clean_normalize
+from infrastructure.scraper.clean_result import job_clean_normalize
 import asyncio
 import json
 async def scrape_all() : 
@@ -20,7 +20,10 @@ async def scrape_all() :
             jobs.extend(result)
     with open("exported_mock_data.json","w",encoding="utf-8") as file :
         json.dump(jobs,file,indent=4)
-    return jobs
+    
+    cleaned_jobs = job_clean_normalize(jobs)
+    return cleaned_jobs
 
 jobs = asyncio.run(scrape_all())
-# cleaned_jobs = job_clean_normalize(jobs)
+for item in jobs:
+    print(item)

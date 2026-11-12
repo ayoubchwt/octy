@@ -6,7 +6,7 @@ class JobService :
     
     @staticmethod
     @transaction.atomic()
-    def job_create_or_update(*, scraped : ScrapedJob) -> tuple[Job ,bool] : 
+    def jobs_create_or_update(*, scraped : ScrapedJob) -> tuple[Job ,bool] : 
         # insert a single scraped job into db
         return Job.objects.update_or_create(scraped)
 
