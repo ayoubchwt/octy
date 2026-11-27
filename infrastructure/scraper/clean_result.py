@@ -7,8 +7,8 @@ def job_clean_normalize(jobs : list[Job] = []) -> list[Job] :
         print("Job list is empty")
         return jobs
     df = pd.DataFrame(jobs)
-    df = df.dropna(subset=["title" , "title" , "company", "source_job_id", "source"])
-    unknown_cols = ["location", "country","employment_type" , "langauge" , "description", "salary_period"]
+    df = df.dropna(subset=["title" , "title" , "company", "source_job_id", "source" , "url"])
+    unknown_cols = ["location", "country","employment_type" , "language" , "description", "salary_period"]
     for col in unknown_cols :   
         if col in df.columns : 
             df[col] = df[col].fillna("unknown").astype(str).str.strip()

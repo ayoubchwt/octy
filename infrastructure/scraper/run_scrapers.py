@@ -5,11 +5,15 @@ from infrastructure.scraper.schemas.job import Job
 from infrastructure.scraper.clean_result import job_clean_normalize
 import asyncio
 import json
+import os
+from dotenv import load_dotenv
 async def scrape_all() : 
+    load_dotenv()
+    JOB_NUMBER_PER_SCRAPER = int(os.getenv("JOB_NUMBER_PER_SCRAPER")) | 10
     results = await asyncio.gather(
-        asyncio.to_thread(fetchArbeitJobs,jobs_number = 10),                                                                                                                                          
-        asyncio.to_thread(fetchNomadoJobs,jobs_number = 10),    
-        fetchNofluffjobs(jobs_number = 10),
+        asyncio.to_thread(fetchArbeitJobs,jobs_number = JOB_NUMBER_PER_SCRAPER),                                                                                                                                          
+        asyncio.to_thread(fetchNomadoJobs,jobs_number = JOB_NUMBER_PER_SCRAPER),    
+        fetchNofluffjobs(jobs_number = JOB_NUMBER_PER_SCRAPER),
         return_exceptions=True
     )
     jobs : list[Job] = []
@@ -23,7 +27,3 @@ async def scrape_all() :
     
     cleaned_jobs = job_clean_normalize(jobs)
     return cleaned_jobs
-
-jobs = asyncio.run(scrape_all())
-for item in jobs:
-    print(item)

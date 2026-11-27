@@ -159,7 +159,7 @@ async def fetchNofluffjobs(jobs_number = 1000) -> list[Job]:
     if not NO_FLUFF_JOBS_URL:
         raise ValueError("NO_FLUFF_JOBS_URL is missing from .env")
     try:
-        async with AsyncCamoufox(headless=False) as browser:
+        async with AsyncCamoufox(headless=True) as browser:
             context = await browser.new_context(
                 locale="en-US",
                     extra_http_headers={
